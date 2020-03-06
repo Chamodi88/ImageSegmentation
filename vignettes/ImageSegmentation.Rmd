@@ -1,0 +1,96 @@
+---
+title: "ImageSegmentation"
+author: "Chamodi Boyagoda"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{ImageSegmentation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette introduces and explains the use of the package `ImageSegmentation` which is written in R to perform segmentation based on pixel values of raster images including digital photos which are having at least three bands.This package basically uses functions of the package `stars` to read images, the package `stats` to run kmeans algorithm, the package `sf` for default colours and `graphics` to plot images. The package `ImageSegmentation` contains a method to convert colour image to gray image, two methods to segment images and two methods to visualize the results introducing three new classes. Following sections explain them in details: 
+     
+- [1. Converting colour image to gray image](#sec1) 
+- [2. Segmentation using thresholds](#sec2)   
+- [3. Segmentation using kmeans algorithm](#sec3) 
+- [4. Plotting segmented images and grayscale images](#sec4)  
+- [5. Extracting single class/cluster from segmented images](#sec5)
+          
+## 1. Converting colour image to gray image {#sec1} 
+The fucntion `RGBtoGRAY` can be used to convert an image with three or more number of bands into single band image. This function always returns an object of class "grayimage". The weighted sum of R, G and B values of the original image is computed to produce the new image with one band. Weights used in the formula are similar weights used to calculate [Luma (y') component](https://en.wikipedia.org/wiki/Grayscale#Converting_color_to_grayscale). According to the formula, Red has contribute 29.9%, Green has contributed 58.7% and Blue has contributed 11.4%.     
+
+Formula used to produce grayscale image:
+
+                                  grayimage = 0.299 * R + 0.587 * G + 0.114 * B
+                                  
+The function is demostrated in following steps using the image.tif file, which is a small portion of an aerial photo taken by SONY Alpha 5100 camera with 30m resolution. 
+```{r setup1}
+# Load the package
+library(ImageSegmentation)
+
+# Load stars package to read data
+library(stars)
+
+# Load the data from system files
+imgRGB <- read_stars(system.file("extdata/image.tif", package="ImageSegmentation"))
+
+# Convert colour image to grayscale
+grayimage <- RGBtoGRAY(imgRGB,n=3,Red=1,Green=2,Blue=3)
+grayimage
+
+```
+
+## 2. Segmentation using thresholds {#sec2}
+The fucntion `segmentation_threshold` can be used to segment an image of having single band. It takes an image of class "grayimage" as input and returns an image of class "THsegments". It is designed to divide the pixel values into four clusters by user defined three thresholds.By defaults, the function utilizes mean of all pixels to defined three thresholds mean, half of mean and quarter of mean. Example of the method is illustrated below using the same image. 
+camera with 30m resolution. 
+```{r setup2}
+# Segmenting a grayscale image
+segthresh <- segmentation_threshold(grayimage)
+segthresh
+
+```
+
+## 3. Segmentation using kmeans algorithm {#sec3}
+The fucntion `seg_kmeans` can be used to segment an image with three or more number of bands into desired number of segments. This function always returns an object of class "Table" resulting a table. The band values (i.e. red, green, blue etc.) of the original image are introduced to kmeans function from package `stat` to group them into clusters. Example of the method is illustrated below. 
+```{r setup3, warning = FALSE}
+# Segmenting an colour image into 5 clusters
+segkmeans <- seg_kmeans(imgRGB, b=3, k=5)
+
+# Displaying only first four rows of the table
+head(segkmeans, 4)
+
+```
+
+## 4. Plotting segmented images and grayscale images {#sec4}
+The plot method `imageplot` can be used to visualize the segmented images and also grayscale image. The method can be applied for object of classes "grayimage", "THsegments" and "Table". The methods utilizes `plot.stars` method inside to plot the images. Particularly, the plot method `imageplot.Table` converts a dataframe to an image.
+
+```{r, step4, out.width="50%", out.height="50%",fig.align='center', warning = FALSE}
+# Plotting a grayscale image
+imageplot(grayimage)
+
+# Plotting an image segmented by thresholds
+imageplot(segthresh)
+
+# Plotting an image segmented by kmeans
+imageplot(segkmeans,k=5, org_image=imgRGB, b=3)
+```
+
+## 5. Extracting single class/cluster from segmented images {#sec5}
+The method `extract` can be used to plot single class from segmented image for further analyzing them. The method can be applied for object of class "Table" and "THsegments". The result is an binary image containing the selected class. Example is shown below. 
+
+```{r, step5, out.width="50%", out.height="50%",fig.align='center', warning = FALSE}
+# Extracting class 3 from an image segmented by thresholds
+extract(segthresh, cluster= 3)
+
+# Extracting class 2 from an image segmented by kmeans
+extract(segkmeans,cluster=2,org_image = imgRGB,b=3)
+
+```
